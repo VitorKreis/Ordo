@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-check:
+    name: Build and checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
+
+      - name: Run JVM unit tests
+        run: ./gradlew --no-daemon --stacktrace testDebugUnitTest
+
+      - name: Assemble debug APK
+        run: ./gradlew --no-daemon --stacktrace assembleDebug
+
+      - name: Assemble release APK
+        run: ./gradlew --no-daemon --stacktrace assembleRelease
+
+      - name: Run Android lint
+        run: ./gradlew --no-daemon --stacktrace lintDebug
+
+      - name: Record instrumented tests
+        if: always()
+        run: |
+          {
+            echo '### Instrumented tests'
+            echo
+            echo '- Status: not run'
+            echo '- Reason: this workflow does not provision an Android emulator or connected device.'
+            echo '- Command for a device-backed environment: `./gradlew connectedDebugAndroidTest`'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo '::notice title=Instrumented tests::Not run because no Android emulator or connected device is provisioned.'
